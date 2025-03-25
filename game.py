@@ -1,6 +1,27 @@
+import math
 import pygame
 import random
 import os
+
+class Explosion:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.particles = [SmokeParticle(x, y) for _ in range(15)]  # 15 ذره دود
+        self.lifetime = 1.5  # مدت نمایش کل انفجار
+        self.current_time = 0
+
+
+    def update(self, dt):
+        self.current_time += dt
+        for p in self.particles[:]:
+            if not p.update(dt):
+                self.particles.remove(p)
+        return self.current_time < self.lifetime or len(self.particles) > 0
+
+    def draw(self, screen):
+        for p in self.particles:
+            p.draw(screen)
 
 class Target:
     def __init__(self):
@@ -77,7 +98,40 @@ class Items(Target):
         image = pygame.image.load(image_path)
         image = pygame.transform.scale(image, (35, 35))
         self.draw(screen, image)
+class MuzzleFlash:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.radius = 10  # اندازه اولیه جرقه
+        self.max_radius = 20  # حداکثر اندازه
+        self.growth_speed = 2  # سرعت بزرگ شدن
+        self.alpha = 200  # شفافیت (۰ تا ۲۵۵)
+        self.fade_speed = 8  # سرعت محو شدن
+        self.active = True
+        self.color = (255, 200, 0)  # رنگ نارنجی-طلایی
 
+    def update(self):
+        # بزرگ شدن جرقه
+        if self.radius < self.max_radius:
+            self.radius += self.growth_speed
+        
+        # محو شدن تدریجی
+        self.alpha = max(0, self.alpha - self.fade_speed)
+        if self.alpha <= 0:
+            self.active = False
+
+    def draw(self, screen):
+        if self.active:
+            # ایجاد سطح شفاف برای جرقه
+            flash_surface = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA)
+            
+            # رسم دایره با گرادیان شفافیت (از مرکز به بیرون)
+            for r in range(self.radius, 0, -1):
+                alpha = int(self.alpha * (r / self.radius))
+                color = (*self.color[:3], alpha)
+                pygame.draw.circle(flash_surface, color, (self.radius, self.radius), r)
+            
+            screen.blit(flash_surface, (self.x - self.radius, self.y - self.radius))
 class Shoot:
     def __init__(self, screen):
         self.screen = screen
@@ -93,7 +147,7 @@ class Shoot:
         except:
             print("Warning: Could not load shot sound!")
             self.shot_sound = None
-
+        self.muzzle_flashes = []  # لیست جرقه‌های فعال
     def check_shoot(self, target_x, target_y):
         if target_x <= self.shot_x <= target_x+35 and target_y <= self.shot_y <= target_y+35 :
             self.shot_x = random.randint(23, 1177)
@@ -125,13 +179,54 @@ class Shoot:
             if not self.shoot_triggered:  # فقط اگر قبلاً شلیک نشده باشد
                 self.shots.append((self.shot_x, self.shot_y))
                 self.shotsl = [(self.shot_x, self.shot_y)]
-                self.shoot_triggered = True  # وضعیت شلیک را به "انجام شده" تغییر دهید
+                self.muzzle_flashes.append(MuzzleFlash(self.shot_x, self.shot_y))
              # پخش صدای شلیک
-            if self.shot_sound:
-                self.shot_sound.play()
-
+                if self.shot_sound:
+                    self.shot_sound.play()
+            self.shoot_triggered = True
         else:
             self.shoot_triggered = False  # اگر کلید شلیک رها شده باشد، وضعیت را بازنشانی کنید
+    def draw_muzzle_flashes(self, screen):
+        for flash in self.muzzle_flashes[:]:
+            flash.update()
+            flash.draw(screen)
+            if not flash.active:
+                self.muzzle_flashes.remove(flash)
+class SmokeParticle:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.size = random.randint(5, 15)
+        self.color = (
+            random.randint(100, 150),  # خاکستری
+            random.randint(100, 150),
+            random.randint(100, 150),
+            random.randint(200, 255)  # شفافیت اولیه
+        )
+        self.speed = random.uniform(0.5, 1.5)
+        self.angle = random.uniform(0, math.pi)  # فقط به سمت بالا
+        self.lifetime = random.uniform(1.0, 2.0)  # مدت نمایش (ثانیه)
+        self.current_time = 0
+
+    def update(self, dt):
+        self.current_time += dt
+        # حرکت به سمت بالا با کمی پراکندگی افقی
+        self.x += math.cos(self.angle) * 0.5
+        self.y -= self.speed  # منفی چون مختصات Y در Pygame به سمت پایین است
+        # محو شدن تدریجی
+        self.color = (
+            self.color[0],
+            self.color[1],
+            self.color[2],
+            int(self.color[3] * (1 - self.current_time/self.lifetime))
+        )
+        return self.current_time < self.lifetime
+
+    def draw(self, screen):
+        s = pygame.Surface((self.size*2, self.size*2), pygame.SRCALPHA)
+        pygame.draw.circle(s, self.color, (self.size, self.size), self.size)
+        screen.blit(s, (self.x - self.size, self.y - self.size))
+
 
 
 class Point():
@@ -287,7 +382,7 @@ class Input:
             f"bullets : {player1_bullets}"
         ]
         for i, line in enumerate(player1_info1):
-            text = self.font.render(line, True, (1, 87, 155))
+            text = self.font.render(line, True, (10, 10, 150))
             self.screen.blit(text, (50, 20 + i * 30))
         self.screen.blit(self.icons['score'], (315, 20))
         self.screen.blit(self.icons['time'], (315, 50))
@@ -296,7 +391,7 @@ class Input:
             f"time : {time1}" 
         ]
         for i, line in enumerate(player1_info2):
-            text = self.font.render(line, True, (1, 87, 155))
+            text = self.font.render(line, True, (10,10,150))
             self.screen.blit(text, (350, 20 + i * 30))
 
         self.screen.blit(self.icons['bullets'], (905, 50))
@@ -306,7 +401,7 @@ class Input:
             f"bullets : {player2_bullets}"
         ]
         for i, line in enumerate(player2_info1):
-            text = self.font.render(line, True, (25, 25, 112))
+            text = self.font.render(line, True, (150,10,10))
             self.screen.blit(text, (940, 20 + i * 30))
 
         self.screen.blit(self.icons['score'], (695, 20)) 
@@ -316,7 +411,7 @@ class Input:
             f"time : {time2}" 
         ]
         for i, line in enumerate(player2_info2):
-            text = self.font.render(line, True, (25, 25, 112))
+            text = self.font.render(line, True, (150,10,10))
             self.screen.blit(text, (730, 20 + i * 30))
 
         return time1, time2
@@ -325,6 +420,12 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.mixer.init()
+        try:
+            pygame.mixer.music.load(os.path.join("sound effects", "background.mp3"))  
+            pygame.mixer.music.set_volume(0.3) 
+        except Exception as e:
+            print(f"Warning: Could not load background music! Error: {e}")
+
         self.screen = pygame.display.set_mode((1200, 650))
         pygame.display.set_caption("CSshot Game")
         try:
@@ -340,6 +441,7 @@ class Game:
         except:
             print("Warning: Could not load hit sound!")
             self.hit_sound = None
+        
         self.clock = pygame.time.Clock()
         self.player1_bullets = 20
         self.player2_bullets = 21
@@ -357,7 +459,27 @@ class Game:
         except:
             print("Warning: Could not load win sound!")
             self.win_sound = None    
-
+        self.explosions = []
+        self.dt = 0
+    def update_explosions(self):
+        for explosion in self.explosions[:]:
+            if not explosion.update(self.dt):
+                self.explosions.remove(explosion)
+    def show_countdown(self):
+        countdown_font = pygame.font.Font(None, 150)
+        for i in range(3, 0, -1):
+            self.screen.fill((173, 216, 230))
+            countdown_text = countdown_font.render(str(i), True, (1, 87, 155))
+            self.screen.blit(countdown_text, (580, 250))
+            pygame.display.flip()
+            pygame.time.wait(1000)  # تأخیر 1 ثانیه‌ای
+    
+        self.screen.fill((173, 216, 230))
+        start_text = countdown_font.render("Start!", True, (1, 87, 155))
+        self.screen.blit(start_text, (480, 250))
+        pygame.display.flip()
+        pygame.time.wait(1000)  # تأخیر 1 ثانیه‌ای
+        
     def draw_border(self):
         border_color = (0, 0, 0)  # رنگ کادر
         border_width = 3  # ضخامت کادر
@@ -365,6 +487,7 @@ class Game:
 
     def display_end_screen(self, score1, score2, player1_name, player2_name):
         self.screen.fill((173, 216, 230))
+        pygame.mixer.music.stop()  # توقف موزیک پس‌زمینه
         if self.win_sound:
             self.win_sound.play()
         if score1 > score2:
@@ -385,16 +508,22 @@ class Game:
 
         pygame.display.flip()
 
+    
+        
         # تأخیر ۵ ثانیه‌ای قبل از بسته شدن بازی
         pygame.time.wait(7000)  # 7000 میلی‌ثانیه = 7 ثانیه
+        self.running = False
 
     def run(self):
+        pygame.mixer.init()
         if self.login_sound:
             self.login_sound.play()
         get_inputs = Input(self.screen)
         get_inputs.get_player_names()
         if self.login_sound:
-            self.login_sound.stop()  # قطع صدا پس از ورود به بازی
+            self.login_sound.stop()  # قطع صدا پس از ورود به 
+        self.show_countdown()
+        pygame.mixer.music.play(-1)  # پخش موزیک به صورت لوپ بی‌نهایت
         self.start_time1 = pygame.time.get_ticks()
         self.start_time2 = pygame.time.get_ticks()
 
@@ -416,6 +545,7 @@ class Game:
 
 
         while self.running:
+            self.dt = self.clock.tick(60) / 1000.0
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -424,13 +554,16 @@ class Game:
                         self.space_pressed = False
                     elif event.key == pygame.K_RETURN:
                         self.enter_pressed = False
-
+            self.update_explosions()
             self.screen.fill((173, 216, 230))
-
+            shoot1.draw_muzzle_flashes(self.screen)
+            shoot2.draw_muzzle_flashes(self.screen)
+            
             current_time1 = pygame.time.get_ticks() - self.start_time1
             current_time2 = pygame.time.get_ticks() - self.start_time2
             time1, time2 = get_inputs.display_player_info(current_time1, current_time2, self.player1_bullets, self.player2_bullets, self.score1, self.score2)
-
+            for explosion in self.explosions:
+                explosion.draw(self.screen)
             target1.draw_target(self.screen)
             target2.draw_target(self.screen)
             target3.draw_target(self.screen)
@@ -458,45 +591,59 @@ class Game:
             for shot in shoot1.shotsl:
                 if target1.check_collision(shot):
                     self.score1, self.number_of_shots1_p1 = point1.giving_points(target1, shoot1, self.score1, self.number_of_shots1_p1, shot, targets, point1)
+                    self.explosions.append(Explosion(target1.x + 17.5, target1.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
                 if target2.check_collision(shot):
                     self.score1, self.number_of_shots1_p1 = point1.giving_points(target2, shoot1, self.score1, self.number_of_shots1_p1, shot, targets, point1)
+                    self.explosions.append(Explosion(target2.x + 17.5, target2.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+            
                 if target3.check_collision(shot):
                     self.score1, self.number_of_shots1_p1 = point1.giving_points(target3, shoot1, self.score1, self.number_of_shots1_p1, shot, targets, point1)
+                    self.explosions.append(Explosion(target3.x + 17.5, target3.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+                  
                 if target_extra_time.check_collision(shot):
                     self.score1, self.number_of_shots1_p1 = point1.giving_points(target_extra_time, shoot1, self.score1, self.number_of_shots1_p1, shot, targets, point1)
+                    self.explosions.append(Explosion(target_extra_time.x + 17.5, target_extra_time.y + 17.5))
                     self.start_time1 += 10000   # کم کردن 10 ثانیه از زمان شروع (معادل اضافه کردن 10 ثانیه به زمان باقیمانده)
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+                    
 
             for shot in shoot2.shotsl:
                 if target1.check_collision(shot):
                     self.score2, self.number_of_shots1_p2 = point2.giving_points(target1, shoot2, self.score2, self.number_of_shots1_p2, shot, targets, point2)
+                    self.explosions.append(Explosion(target1.x + 17.5, target1.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+                    
                 if target2.check_collision(shot):
                     self.score2, self.number_of_shots1_p2 = point2.giving_points(target2, shoot2, self.score2, self.number_of_shots1_p2, shot, targets, point2)
+                    self.explosions.append(Explosion(target2.x + 17.5, target2.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+                    
                 if target3.check_collision(shot):
                     self.score2, self.number_of_shots1_p2 = point2.giving_points(target3, shoot2, self.score2, self.number_of_shots1_p2, shot, targets, point2)
+                    self.explosions.append(Explosion(target3.x + 17.5, target3.y + 17.5))
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
+                    
                 if target_extra_time.check_collision(shot):
                     self.score2, self.number_of_shots1_p2 = point2.giving_points(target_extra_time, shoot2, self.score2, self.number_of_shots1_p2, shot, targets, point2)
+                    self.explosions.append(Explosion(target_extra_time.x + 17.5, target_extra_time.y + 17.5))
                     self.start_time2 += 10000   # کم کردن 10 ثانیه از زمان شروع (معادل اضافه کردن 10 ثانیه به زمان باقیمانده)
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
                     
             for shot in shoot1.shots:
-                pygame.draw.circle(self.screen, (1, 87, 155), shot, 3)
+                pygame.draw.circle(self.screen, (10,10,150),shot, 3)
             for shot in shoot2.shots[1:]:
-                pygame.draw.circle(self.screen, (25, 25, 112), shot, 3)
+                pygame.draw.circle(self.screen, (150,10,10),shot,3)
 
             self.draw_border()  # رسم کادر در صفحه اصلی بازی
             pygame.draw.line(self.screen, (0, 0, 0), (7, 85), (1193, 85), 3) #رسم خط در صفحه اصلی بازی
@@ -538,7 +685,7 @@ class Game:
 
             pygame.display.flip()
             self.clock.tick(60)
-
+        pygame.mixer.music.stop()  # توقف موزیک هنگام خروج
         pygame.quit()
 
 if __name__ == "__main__":
