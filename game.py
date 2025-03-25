@@ -10,8 +10,6 @@ class Explosion:
         self.particles = [SmokeParticle(x, y) for _ in range(15)]  # 15 ذره دود
         self.lifetime = 1.5  # مدت نمایش کل انفجار
         self.current_time = 0
-
-
     def update(self, dt):
         self.current_time += dt
         for p in self.particles[:]:
@@ -430,18 +428,23 @@ class Game:
         pygame.display.set_caption("CSshot Game")
         try:
             self.login_sound = pygame.mixer.Sound(os.path.join("sound effects", "login.mp3"))
-            self.login_sound.set_volume(2.5)  # تنظیم حجم صدا
+            self.login_sound.set_volume(1.0)  # تنظیم حجم صدا
         except:
             print("Warning: Could not load login sound!")
             self.login_sound = None
         self.running = True
         try:
             self.hit_sound = pygame.mixer.Sound(os.path.join("sound effects", "hit.mp3"))
-            self.hit_sound.set_volume(0.6)  # تنظیم حجم صدا
+            self.hit_sound.set_volume(0.8)  # تنظیم حجم صدا
         except:
             print("Warning: Could not load hit sound!")
             self.hit_sound = None
-        
+        try:
+            self.extra_time_sound = pygame.mixer.Sound(os.path.join("sound effects", "extra_time.mp3"))
+            self.extra_time_sound.set_volume(0.6)  # تنظیم حجم صدا
+        except:
+            print("Warning: Could not load extra time sound!")
+            self.extra_time_sound = None
         self.clock = pygame.time.Clock()
         self.player1_bullets = 20
         self.player2_bullets = 21
@@ -610,6 +613,8 @@ class Game:
                     self.score1, self.number_of_shots1_p1 = point1.giving_points(target_extra_time, shoot1, self.score1, self.number_of_shots1_p1, shot, targets, point1)
                     self.explosions.append(Explosion(target_extra_time.x + 17.5, target_extra_time.y + 17.5))
                     self.start_time1 += 10000   # کم کردن 10 ثانیه از زمان شروع (معادل اضافه کردن 10 ثانیه به زمان باقیمانده)
+                    if self.extra_time_sound:  
+                        self.extra_time_sound.play()
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
                     
@@ -637,6 +642,8 @@ class Game:
                     self.score2, self.number_of_shots1_p2 = point2.giving_points(target_extra_time, shoot2, self.score2, self.number_of_shots1_p2, shot, targets, point2)
                     self.explosions.append(Explosion(target_extra_time.x + 17.5, target_extra_time.y + 17.5))
                     self.start_time2 += 10000   # کم کردن 10 ثانیه از زمان شروع (معادل اضافه کردن 10 ثانیه به زمان باقیمانده)
+                    if self.extra_time_sound:  
+                        self.extra_time_sound.play()
                     if self.hit_sound:  
                         self.hit_sound.play()  # پخش صدای برخورد
                     
