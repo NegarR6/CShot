@@ -277,6 +277,12 @@ class Input:
         self.screen = screen
         self.font = pygame.font.Font(None, 36)
         self.error_message = ""  # برای ذخیره پیام خطا
+        try:
+            self.background = pygame.image.load(os.path.join("pics", "login_bg.jpg")).convert()
+            self.background = pygame.transform.scale(self.background, (1200, 650))
+        except:
+            print("Warning: Could not load background image!")
+            self.background = None
         self.icons = {
             'player': pygame.image.load(os.path.join("pics", "player_icon.png")).convert_alpha(),
             'bullets': pygame.image.load(os.path.join("pics", "bullets_icon.png")).convert_alpha(),
@@ -289,12 +295,23 @@ class Input:
 
 
     def draw_input_box(self, text, x, y, active):
-        input_box = pygame.Rect(x, y, 200, 40)
-        color = (1, 87, 155) if active else (66, 165, 245)
-        pygame.draw.rect(self.screen, color, input_box, 2)
-        text_surface = self.font.render(text, True, (26, 35, 126))
-        self.screen.blit(text_surface, (x + 5, y + 5))
-        return input_box
+    # ایجاد یک سطح شفاف برای کادر
+        s = pygame.Surface((200, 40), pygame.SRCALPHA)
+    
+    # تعیین رنگ با شفافیت (آلفا=150)
+        if active:
+            pygame.draw.rect(s, (1, 87, 155, 255), (0, 0, 200, 40), 2)
+        else:
+            pygame.draw.rect(s, (66, 165, 245, 255), (0, 0, 200, 40), 2)
+    
+    # نمایش سطح شفاف روی صفحه اصلی
+        self.screen.blit(s, (x, y))
+    
+    # نمایش متن
+        text_surface = self.font.render(text, True, (255, 255, 255))  # متن سفید
+        self.screen.blit(text_surface, (x + 10, y + 10))
+    
+        return pygame.Rect(x, y, 200, 40)
 
     def draw_error_message(self):
         if self.error_message:
@@ -352,8 +369,11 @@ class Input:
                                 player2_name += event.unicode
                             else:
                                 self.error_message = "Player name cannot be longer than 8 characters."
-
-            self.screen.fill((173, 216, 230))
+            if self.background:
+                self.screen.blit(self.background, (0, 0))
+            else:
+                self.screen.fill((173, 216, 230))
+            
             self.draw_input_box(player1_name, 500, 250, active1)
             self.draw_input_box(player2_name, 500, 350, active2)
             self.draw_error_message()  # نمایش پیام خطا
@@ -499,13 +519,16 @@ class Game:
             result_text = f"{player2_name} wins!"
         else:
             result_text = "Player 1 and 2 tied."
-
+        
+        center_x = self.screen.get_width() // 2
         result_surface = self.font1.render(result_text, True, (0, 0, 0))
-        self.screen.blit(result_surface, (440, 250))
+        result_rect = result_surface.get_rect(center=(center_x, 250))
+        self.screen.blit(result_surface,result_rect )
 
         score_text = f"{player1_name}: {score1}  |  {player2_name}: {score2}"
         score_surface = self.font.render(score_text, True, (0, 0, 0))
-        self.screen.blit(score_surface, (470, 400))
+        score_rect = score_surface.get_rect(center=(center_x, 350))
+        self.screen.blit(score_surface,score_rect )
 
         self.draw_border()  # رسم کادر در صفحه پایان بازی
 
