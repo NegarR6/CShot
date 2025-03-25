@@ -300,9 +300,9 @@ class Input:
     
     # تعیین رنگ با شفافیت (آلفا=150)
         if active:
-            pygame.draw.rect(s, (1, 87, 155, 255), (0, 0, 200, 40), 2)
+            pygame.draw.rect(s, (0, 150, 0, 150), (0, 0, 200, 40), 2)
         else:
-            pygame.draw.rect(s, (66, 165, 245, 255), (0, 0, 200, 40), 2)
+            pygame.draw.rect(s, (255, 215, 0, 150), (0, 0, 200, 40), 2)
     
     # نمایش سطح شفاف روی صفحه اصلی
         self.screen.blit(s, (x, y))
@@ -467,7 +467,7 @@ class Game:
             self.extra_time_sound = None
         self.clock = pygame.time.Clock()
         self.player1_bullets = 20
-        self.player2_bullets = 21
+        self.player2_bullets = 20
         self.score1 = 0
         self.score2 = 0
         self.font = pygame.font.Font(None, 36)
@@ -672,7 +672,7 @@ class Game:
                     
             for shot in shoot1.shots:
                 pygame.draw.circle(self.screen, (10,10,150),shot, 3)
-            for shot in shoot2.shots[1:]:
+            for shot in shoot2.shots:
                 pygame.draw.circle(self.screen, (150,10,10),shot,3)
 
             self.draw_border()  # رسم کادر در صفحه اصلی بازی
