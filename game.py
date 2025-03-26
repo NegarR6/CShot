@@ -24,6 +24,7 @@ class Explosion:
         for p in self.particles:
             p.draw(screen)
 
+
 class MuzzleFlash: #کلاس جرقه دهانه تفنگ - وقتی شلیک می‌کنیم این جرقه میاد
     def __init__(self, x, y):
         self.x = x
@@ -58,6 +59,7 @@ class MuzzleFlash: #کلاس جرقه دهانه تفنگ - وقتی شلیک م
                 pygame.draw.circle(flash_surface, color, (self.radius, self.radius), r)
             
             screen.blit(flash_surface, (self.x - self.radius, self.y - self.radius))
+
 
 class SmokeParticle: #کلاس ذرات دود - برای افکت انفجار استفاده میشه
     def __init__(self, x, y):
@@ -95,6 +97,7 @@ class SmokeParticle: #کلاس ذرات دود - برای افکت انفجار 
         pygame.draw.circle(s, self.color, (self.size, self.size), self.size)
         screen.blit(s, (self.x - self.size, self.y - self.size))
 
+
 class Target: #کلاس تارگت های معمولی بازی
     def __init__(self):
         self.x = random.randint(40, 1125) 
@@ -123,15 +126,16 @@ class Target: #کلاس تارگت های معمولی بازی
             return self.points #امتیاز رو برمیگردونه
         return 0 # اگه هدف غیرفعال بود امتیازی نمیده
         
-    def respawn(self, other_targets): #تولید مجدد هدف 
+    def respawn(self, other_targets): #تولید مجدد هدف
         while True:
             self.x = random.randint(40, 1125)
             self.y = random.randint(120, 575)
             self.active = True
 
-            overlap_found = False #تداخل نداشتن با اهداف دیگر
+            overlap_found = False
             for target in other_targets:
-                if target != self and self.overlap(target.x, target.y):
+                # چک کردن تداخل با همه تارگت‌های فعال دیگر
+                if target != self and target.active and self.overlap(target.x, target.y):
                     overlap_found = True
                     break
             
@@ -142,11 +146,18 @@ class Target: #کلاس تارگت های معمولی بازی
     def check_collision(self, shot): #چک کردن برخورد تیر با هدف
         return self.x <= shot[0] <= self.x + 35 and self.y <= shot[1] <= self.y + 35
 
-    def overlap(self, other_x, other_y): #چک کردن تداخل با اهداف دیگر
-        return not (self.x + 35 < other_x or
-               self.x > other_x + 35 or
-               self.y + 35 < other_y or
-               self.y > other_y + 35)
+    def overlap(self, other_x, other_y):
+        # محاسبه مرکز هر تارگت
+        self_center_x = self.x + 17.5
+        self_center_y = self.y + 17.5
+        other_center_x = other_x + 17.5
+        other_center_y = other_y + 17.5
+        
+        # فاصله بین دو مرکز
+        distance = math.sqrt((self_center_x - other_center_x)**2 + (self_center_y - other_center_y)**2)
+        
+        # اگر فاصله کمتر از قطر تارگت باشد (35 پیکسل) تداخل وجود دارد
+        return distance < 35
     
 
 class Items(Target): #کلاس ایتم های ویژه که از کلاس تارگت ارث بری میکند
